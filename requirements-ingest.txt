@@ -1,0 +1,7 @@
+# Moi truong chung cho ca nhom (khong can GPU), Python 3.11:
+# ingestion, OCR Tesseract, build_training_data.py, xem_qa_anh.py, tao_anh_hoi.py
+pymupdf==1.28.2
+pillow==12.3.0
+numpy==2.4.6
+pytesseract==0.3.13
+rapidfuzz

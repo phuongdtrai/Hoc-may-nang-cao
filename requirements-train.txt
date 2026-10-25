@@ -1,0 +1,17 @@
+# Moi truong train / danh gia / xuat mo hinh tren may co GPU NVIDIA (RTX 50xx, driver ho tro CUDA 13), Python 3.11.
+# Phien ban lay tu .venv da train vong 1 va vong 2 thanh cong tren RTX 5060 (Windows).
+--extra-index-url https://download.pytorch.org/whl/cu130
+-r requirements-ingest.txt
+torch==2.14.1+cu130
+torchvision==0.29.1+cu130
+unsloth==2026.10.5
+unsloth_zoo==2026.10.5
+transformers==5.17.0
+trl==1.15.0
+peft==0.21.2
+accelerate==1.15.0
+bitsandbytes==0.50.2
+datasets==4.8.5
+xformers==0.0.35
+triton-windows==3.8.0.post29; sys_platform == "win32"
+matplotlib==3.11.2
