@@ -16,3 +16,4 @@ finetune/checkpoints/
 .env
 .DS_Store
 Thumbs.db
+unsloth_compiled_cache/
