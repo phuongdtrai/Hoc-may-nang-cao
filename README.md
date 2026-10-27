@@ -2,8 +2,11 @@
 
 **Bắt đầu từ đây:** tài liệu PDF, dữ liệu đã xử lý và mô hình không nằm trên GitHub. Làm theo [`HUONG_DAN_DU_LIEU.md`](HUONG_DAN_DU_LIEU.md) để lấy về đúng chỗ và tạo môi trường trước khi chạy bất kỳ script nào.
 
+Sau khi tải và giải nén, kiểm tra vị trí dữ liệu và SHA256 bằng `python check_data.py`.
+
 | Đường dẫn | Nội dung |
 |---|---|
+| `check_data.py` | Kiểm tra dữ liệu đã giải nén và đối chiếu SHA256 các gói/mô hình nếu có |
 | `ingestion/` | Giai đoạn 3: đọc PDF thành chunk và hình cắt, OCR tiếng Việt, tạo ảnh hỏi — [`HUONG_DAN_GIAI_DOAN_3.md`](HUONG_DAN_GIAI_DOAN_3.md) |
 | `build_training_data.py` | Chuẩn hoá câu hỏi trên sheet QA_Data thành dữ liệu train/val |
 | `finetune/` | Giai đoạn 4: fine-tune Qwen2-VL-2B bằng QLoRA, đánh giá trước/sau, gộp và xuất GGUF — [`HUONG_DAN_GIAI_DOAN_4.md`](HUONG_DAN_GIAI_DOAN_4.md) |

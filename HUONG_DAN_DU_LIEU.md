@@ -30,6 +30,16 @@ Repo này để công khai, nên GitHub chỉ chứa code và hướng dẫn. Nh
 
 ## 2. Kiểm tra đã tải đúng bản
 
+Sau khi tải file về và giải nén vào repo, chạy script kiểm tra:
+
+```powershell
+python check_data.py
+```
+
+Script kiểm tra CSV QA_Data, đủ 10 PDF, các file ingestion và train/val đã giải nén; đồng thời đối chiếu SHA256 cho gói ZIP hoặc GGUF nếu tìm thấy trong `"$HOME\Downloads"` hay thư mục GGUF đích. Dữ liệu xử lý và mô hình là tùy chọn theo công việc: nếu chưa có, script sẽ báo `WARN` kèm lệnh tạo lại/tải về. Mã thoát khác 0 nghĩa là dữ liệu gốc bắt buộc bị thiếu, CSV không hợp lệ hoặc hash sai.
+
+Nếu cần kiểm tra thủ công các file đang ở Downloads:
+
 ```powershell
 Get-FileHash "$HOME\Downloads\*.zip", "$HOME\Downloads\*.gguf" | Format-Table Hash, Path
 ```
