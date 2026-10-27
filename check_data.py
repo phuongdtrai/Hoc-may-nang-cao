@@ -4,6 +4,8 @@
 import argparse
 import csv
 import hashlib
+import json
+import sys
 from pathlib import Path
 
 
@@ -111,6 +113,13 @@ def check_raw_data(repo_dir, report):
                 if missing_columns:
                     report.fail(f"{qa_path} thiếu cột: {', '.join(sorted(missing_columns))}")
                 else:
+                    missing_image_columns = {"image_id", "tap"}.difference(reader.fieldnames)
+                    if missing_image_columns:
+                        report.warn(
+                            f"{qa_path} thiếu cột: {', '.join(sorted(missing_image_columns))} "
+                            "(sheet QA_Data có từ 21/10). Có thể đây là CSV cũ: câu hỏi ảnh vòng 2 cần image_id, "
+                            "cách chia train/val cần tap. Hãy tải lại CSV từ sheet QA_Data."
+                        )
                     row_count = sum(1 for _ in reader)
                     if row_count:
                         report.ok(f"CSV QA_Data đọc được, có {row_count} dòng: {qa_path}")
@@ -159,6 +168,55 @@ def check_processed_data(repo_dir, report):
         report.ok(f"Đủ file train/val trong {processed_dir}")
 
 
+def check_referenced_images(repo_dir, report):
+    """Every image path written in the processed .jsonl files must exist (catches a half-extracted zip)."""
+    processed_dir = repo_dir / "data" / "processed"
+    sources = (
+        (processed_dir / "ingest" / "images.jsonl", "image_path", "python ingestion/ingest.py"),
+        (processed_dir / "vlm_train.jsonl", "image", "python build_training_data.py"),
+        (processed_dir / "vlm_val.jsonl", "image", "python build_training_data.py"),
+    )
+    for jsonl_path, key, rebuild in sources:
+        if not jsonl_path.is_file():
+            continue  # check_processed_data already reported it
+        try:
+            lines = jsonl_path.read_text(encoding="utf-8-sig").splitlines()
+        except (OSError, UnicodeError) as exc:
+            report.warn(f"Không đọc được {jsonl_path}: {exc}")
+            continue
+
+        total, missing, bad_lines = 0, [], []
+        for line_no, line in enumerate(lines, start=1):
+            if not line.strip():
+                continue
+            try:
+                image = json.loads(line).get(key)
+            except (ValueError, AttributeError):
+                bad_lines.append(line_no)
+                continue
+            if not image:
+                continue
+            total += 1
+            path = Path(image)
+            if not path.is_absolute():
+                path = repo_dir / path  # paths are relative to the repo root
+            if not path.is_file():
+                missing.append(image)
+
+        if bad_lines:
+            report.warn(
+                f"{jsonl_path} có {len(bad_lines)} dòng JSON hỏng (dòng {', '.join(map(str, bad_lines[:5]))}). "
+                f"Giải nén lại du_lieu_xu_ly_v2.zip hoặc chạy {rebuild}."
+            )
+        if missing:
+            report.warn(
+                f"{jsonl_path.name}: thiếu {len(missing)}/{total} ảnh, ví dụ {', '.join(missing[:3])}. "
+                f"Giải nén lại du_lieu_xu_ly_v2.zip (ghi đè) hoặc chạy {rebuild}."
+            )
+        elif total:
+            report.ok(f"Đủ {total} ảnh mà {jsonl_path.name} trỏ tới")
+
+
 def check_optional_model_files(repo_dir, report):
     optional_files = (
         repo_dir / "finetune" / "outputs" / "gguf" / "qwen2vl-2b-nhom7-q8_0.gguf",
@@ -173,6 +231,12 @@ def check_optional_model_files(repo_dir, report):
 
 
 def main(argv=None):
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     parser = argparse.ArgumentParser(
         description="Kiểm tra vị trí dữ liệu dự án và SHA256 các gói/mô hình đã biết."
     )
@@ -197,6 +261,7 @@ def main(argv=None):
     print(f"Downloads:  {downloads_dir}")
     check_raw_data(repo_dir, report)
     check_processed_data(repo_dir, report)
+    check_referenced_images(repo_dir, report)
     check_downloads(downloads_dir, repo_dir, report)
     check_optional_model_files(repo_dir, report)
 
