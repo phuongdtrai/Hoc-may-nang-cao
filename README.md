@@ -11,5 +11,7 @@ Sau khi tải và giải nén, kiểm tra vị trí dữ liệu và SHA256 bằn
 | `build_training_data.py` | Chuẩn hoá câu hỏi trên sheet QA_Data thành dữ liệu train/val |
 | `finetune/` | Giai đoạn 4: fine-tune Qwen2-VL-2B bằng QLoRA, đánh giá trước/sau, gộp và xuất GGUF — [`HUONG_DAN_GIAI_DOAN_4.md`](HUONG_DAN_GIAI_DOAN_4.md) |
 | `finetune/prompt_format.py` | "Hợp đồng prompt": backend Giai đoạn 6 phải dựng prompt bằng file này |
+| `embedding/` | Giai đoạn 5: nhúng chunk và hình (bge-m3, CLIP), nạp Qdrant, tìm kiếm cho backend, đo Recall@k — [`HUONG_DAN_GIAI_DOAN_5.md`](HUONG_DAN_GIAI_DOAN_5.md) |
 | `docker/docker-compose.yml` | Qdrant cho Giai đoạn 5 |
 | `requirements-ingest.txt`, `requirements-train.txt` | Thư viện cho máy thường và máy có GPU NVIDIA |
+| `requirements-embed.txt` | Thư viện cho Giai đoạn 5 (sentence-transformers, qdrant-client) |
