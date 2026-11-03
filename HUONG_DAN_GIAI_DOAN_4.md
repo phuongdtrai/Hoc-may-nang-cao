@@ -11,6 +11,9 @@ Gói này nối tiếp Bước 2.4: lấy `llm_train.jsonl`, `llm_val.jsonl`, `v
 | `finetune/eval_truoc_sau.py` | Cho mô hình gốc và mô hình đã fine-tune cùng trả lời tập val, chấm điểm, xuất CSV + báo cáo |
 | `finetune/export_model.py` | Gộp LoRA vào mô hình gốc thành bản 16-bit đầy đủ (để chuyển GGUF / chạy không cần peft) |
 | `finetune/prompt_format.py` | "Hợp đồng prompt" dùng chung cho train, đánh giá và backend Giai đoạn 6 |
+| `finetune/cham_tay.py` | Tạo phiếu chấm thủ công (ẩn tên mô hình) và tổng hợp F1 theo ý, độ đồng thuận (mục 10) |
+| `finetune/y_dap_an_cham_tay.csv` | 84 câu val chọn để chấm tay, đáp án chuẩn đã tách sẵn thành các ý |
+| `finetune/colab_finetune.ipynb` | Train và đánh giá trên Google Colab (GPU T4 miễn phí), cho thành viên không có máy GPU |
 
 Các file nằm trong thư mục gốc repo (cạnh `build_training_data.py`). Mọi lệnh bên dưới đều chạy **tại thư mục gốc repo**. Kết quả được ghi vào `finetune/outputs/`. Thư mục này đã có sẵn trong `.gitignore` của repo, nên các file mô hình nặng vài GB sẽ không bị đẩy lên Git.
 
@@ -82,6 +85,10 @@ pip install unsloth matplotlib pymupdf
 cd "/mnt/c/Machine Learning/nhom7-multimodal-rag"
 python finetune/check_env.py
 ```
+
+### Cách 4 – Google Colab (không cần máy có GPU)
+
+Trên Colab chọn **Tệp > Tải sổ tay lên**, mở `finetune/colab_finetune.ipynb`, chọn GPU T4 rồi chạy các ô từ trên xuống. Notebook tự lấy code từ GitHub và lấy dữ liệu `du_lieu_xu_ly_v2.zip` trong thư mục `nhom7` trên Drive. Kết quả lưu ở `nhom7/ket_qua/<tên lần train>/`. Notebook cài theo `requirements-colab.txt` thay cho `requirements-train.txt`: cùng phiên bản thư viện train, nhưng giữ nguyên torch có sẵn của Colab. T4 không có bf16 nên các script tự train bằng fp16. Mỗi lần train, `thong_tin_train.json` ghi mục `moi_truong` (phiên bản thư viện, GPU, bf16/fp16, commit code, mã băm dữ liệu) để đối chiếu kết quả giữa các máy.
 
 ## 3. Kiểm tra trước khi train
 
@@ -169,7 +176,7 @@ Kết quả ở `finetune/outputs/danh_gia/`:
 
 **Lưu ý khi viết báo cáo:**
 - Ở vòng 1, 7 câu hỏi về ảnh đều đã nằm trong tập train, nên kết quả nhóm ảnh chỉ cho thấy mô hình đã học được dữ liệu đó. Từ Giai đoạn 3 đã có 54 câu hỏi ảnh chưa dùng khi train (`vlm_val.jsonl`); script tự tách thành hai nhóm "Ảnh – đáp án là hình, tập val" (26 câu) và "Ảnh – câu hỏi là ảnh, tập val" (28 câu, người dùng gửi ảnh chụp rồi hỏi). Đây là nhóm dùng để chứng minh "trả lời câu hỏi về ảnh/biểu đồ tốt hơn rõ rệt" như điều kiện hoàn thành của lộ trình (xem `HUONG_DAN_GIAI_DOAN_3.md`, mục 7).
-- F1 và ROUGE-L chỉ đo mức trùng từ ngữ, nên câu trả lời đúng ý nhưng diễn đạt khác vẫn bị điểm thấp. Hãy đọc thêm phần ví dụ.
+- F1 và ROUGE-L chỉ đo mức trùng từ ngữ, nên câu trả lời đúng ý nhưng diễn đạt khác vẫn bị điểm thấp. Hãy đọc thêm phần ví dụ, hoặc chấm thủ công theo mục 10.
 
 ## 6. Xuất mô hình
 
@@ -253,3 +260,59 @@ payload = {"model": "qwen2vl-nhom7", "messages": to_openai_messages(msgs), "temp
   - nhãn chỉ gồm câu trả lời và `<|im_end|>`;
   - ước lượng độ dài token khớp đúng với processor;
   - toàn bộ luồng train → đánh giá → gộp → GGUF chạy thông.
+
+## 10. Chấm thủ công: F1 theo ý, theo ngữ nghĩa và ngữ cảnh
+
+F1 tự động ở mục 5 chỉ đếm âm tiết trùng với đáp án chuẩn. `finetune/cham_tay.py` tạo phiếu để người chấm theo **ngữ nghĩa** (ý đúng nghĩa, diễn đạt khác vẫn tính) và theo **ngữ cảnh** (đối chiếu với đúng ngữ cảnh mô hình được đưa), rồi tổng hợp lại sau khi nhóm chấm xong.
+
+```powershell
+pip install openpyxl==3.1.5                # một lần (đã thêm vào requirements-ingest.txt)
+python finetune/cham_tay.py tao           # tạo 4 phiếu + khoá A/B từ danh_gia_v2/so_sanh_truoc_sau.csv
+python finetune/cham_tay.py tong_hop      # sau khi chép các phiếu đã chấm vào da_cham/
+```
+
+**Chọn câu.** Có 84 câu tập val, cố định trong `finetune/y_dap_an_cham_tay.csv`:
+- 26 câu "Ảnh – đáp án là hình" (toàn bộ);
+- 28 câu "Ảnh – câu hỏi là ảnh" (toàn bộ);
+- 30 câu chữ: 14 TRIET_001, 13 TTHCM_001, 3 tài liệu khác, lấy ngẫu nhiên với seed 42.
+
+Đáp án chuẩn của mỗi câu đã được tách sẵn thành 2–6 ý, tổng cộng 314 ý. Cả nhóm dùng chung một bản tách để R có cùng mẫu số. Vòng sau vẫn dùng file này nếu tập val không đổi. Nếu đáp án trên sheet bị sửa, `tao` sẽ báo câu nào cần tách lại.
+
+**Phiếu chấm** (`finetune/outputs/cham_tay_v2/`):
+- **Chia câu cho người chấm.** 84 câu được chia thành 4 phần đều nhau, phần nào cũng có đủ 3 nhóm câu. Phiếu i gồm phần i và phần i+1, nên mỗi câu có 2 người chấm, tạo thành 4 cặp khác nhau. Mỗi phiếu có 42 câu, tức 84 câu trả lời, mất khoảng 1,5–2 giờ.
+- **Ẩn tên mô hình.** Hai câu trả lời của mỗi câu được ghi A/B theo thứ tự ngẫu nhiên. `khoa.json` ghi A/B ứng với mô hình nào; người điều phối giữ file này, không gửi đi và không mở trước khi cả nhóm chấm xong.
+- **Ba sheet trong phiếu:**
+  - Huong_dan: cách chấm và 5 ví dụ;
+  - Cham: mỗi câu 2 dòng, có sẵn ngữ cảnh mô hình nhận được (ảnh, chú thích, đoạn văn) và các ý của đáp án, chỉ điền vào ô vàng;
+  - Tham_khao: đáp án và ngữ cảnh đầy đủ.
+
+**Cách chấm** (chi tiết trong sheet Huong_dan):
+- Ngữ nghĩa: đánh dấu từng ý của đáp án mà câu trả lời nêu đúng nghĩa (`x` là đủ ý, `p` là một phần). Từ đó R = ý đạt / số ý của đáp án.
+- Ngữ cảnh: đếm các ý còn lại của câu trả lời vào 3 cột: thêm trong ngữ cảnh, thêm ngoài ngữ cảnh, sai/bịa. Từ đó P = (ý đạt + ý thêm trong ngữ cảnh) / tổng số ý.
+- F1 = 2PR/(P+R). Ngoài ra chấm thêm:
+  - nhãn đúng 0/1/2;
+  - điểm Diễn đạt 0/1/2;
+  - câu nào tốt hơn (A, B hoặc Ngang).
+
+**Tổng hợp.** Chép các phiếu đã chấm vào `finetune/outputs/cham_tay_v2/da_cham/` (file .xlsx, hoặc .csv tải từ Google Sheets) rồi chạy `tong_hop`. Kết quả gồm:
+- `bao_cao_cham_tay.md`:
+  - bảng chỉ số tự động đặt cạnh bản chấm tay;
+  - F1 thủ công theo nhóm câu, kèm khoảng tin cậy 95%;
+  - tỷ lệ người chấm chọn v2;
+  - nhãn và diễn đạt;
+  - tỷ lệ ý bịa, tỷ lệ ý ngoài ngữ cảnh;
+  - tương quan với F1 tự động;
+  - độ đồng thuận (Krippendorff α, kappa);
+  - các câu hai người chấm lệch nhau cần xem lại.
+- `ket_qua_cham_tay.csv`: điểm từng câu trả lời, đã gắn lại tên mô hình.
+
+| Chỉ số tự động (mục 5) | Bản chấm tay |
+|---|---|
+| F1 | F1 theo ý (P theo ngữ cảnh, R theo nghĩa) |
+| Độ phủ | R theo nghĩa |
+| ROUGE-L | Không đếm tay được: ROUGE-L chỉ đếm chuỗi chữ trùng, đếm tay chỉ ra lại con số của máy. Thay bằng điểm Diễn đạt 0/1/2 |
+| Thắng/hòa/thua | Tính từ F1 thủ công, và từ lựa chọn A/B của người chấm |
+| Thời gian trả lời | Vẫn đo bằng máy |
+| (không có) | Nhãn đúng 0/1/2; tỷ lệ câu có ý sai/bịa; tỷ lệ câu có ý ngoài ngữ cảnh |
+
+Nếu độ đồng thuận dưới 0,67, cả nhóm họp thống nhất lại cách tách ý và cách xếp ý vào trong hay ngoài ngữ cảnh. Sau đó hai người chấm mỗi câu trong mục "Cần xem lại" cùng xem lại câu đó, sửa phiếu và chạy lại `tong_hop`.

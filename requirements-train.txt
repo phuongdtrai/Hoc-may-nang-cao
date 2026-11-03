@@ -1,5 +1,6 @@
 # Moi truong train / danh gia / xuat mo hinh tren may co GPU NVIDIA (RTX 50xx, driver ho tro CUDA 13), Python 3.11.
 # Phien ban lay tu .venv da train vong 1 va vong 2 thanh cong tren RTX 5060 (Windows).
+# Google Colab dung requirements-colab.txt: cac thu vien train (unsloth, transformers, trl, ...) phai cung phien ban.
 --extra-index-url https://download.pytorch.org/whl/cu130
 -r requirements-ingest.txt
 torch==2.14.1+cu130

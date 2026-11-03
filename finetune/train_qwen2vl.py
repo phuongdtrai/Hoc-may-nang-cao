@@ -243,7 +243,7 @@ def load_hf(args):
     from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 
     cuda = torch.cuda.is_available()
-    bf16 = cuda and torch.cuda.is_bf16_supported()
+    bf16 = cuda and torch.cuda.get_device_capability()[0] >= 8  # T4: fp16 (xem main)
     dtype = torch.bfloat16 if bf16 else (torch.float16 if cuda else torch.float32)
     kw = dict(attn_implementation="sdpa", **dtype_kwargs(dtype))
     if cuda:
@@ -431,6 +431,48 @@ def gpu_info():
             "compute_capability": f"{p.major}.{p.minor}"}
 
 
+def moi_truong(bf16, data_paths):
+    """Phien ban code, du lieu, thu vien va GPU cua lan train -> thong_tin_train.json, de doi chieu ket qua giua cac
+    may (RTX 5060, Colab T4...). Phien ban thu vien quy uoc trong requirements-train.txt va requirements-colab.txt."""
+    import hashlib
+    import importlib.metadata as md
+    import platform
+    import subprocess
+
+    out = {"python": platform.python_version(), "he_dieu_hanh": f"{platform.system()} {platform.release()}",
+           "do_chinh_xac": "bf16" if bf16 else "fp16"}
+    for goi in ("torch", "torchvision", "transformers", "trl", "peft", "accelerate", "bitsandbytes", "datasets",
+                "unsloth", "unsloth_zoo", "xformers"):
+        try:
+            out[goi] = md.version(goi)
+        except md.PackageNotFoundError:
+            pass
+    try:
+        import torch
+
+        out["cuda"] = torch.version.cuda
+    except Exception:
+        pass
+    env = dict(os.environ, GIT_OPTIONAL_LOCKS="0")  # chi doc, khong tao file khoa trong .git
+    try:
+        commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, env=env, capture_output=True,
+                                text=True, timeout=10).stdout.strip()
+        sua = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"], cwd=ROOT, env=env,
+                             capture_output=True, text=True, timeout=10).stdout.strip()
+        if commit:
+            out["git_commit"] = commit + (" (co file sua chua commit)" if sua else "")
+    except Exception:
+        pass
+    bam = {}
+    for path in data_paths:
+        f = path if path and os.path.exists(path) else os.path.join(ROOT, path or "")
+        if path and os.path.isfile(f):
+            with open(f, "rb") as fh:
+                bam[os.path.basename(path)] = hashlib.sha256(fh.read()).hexdigest()[:12]
+    out["du_lieu_sha256"] = bam
+    return out
+
+
 def dry_run(args, train_records, val_records):
     from transformers import AutoProcessor
 
@@ -500,7 +542,9 @@ def main(argv=None):
     train_ds = to_dataset(train_records, args.max_pixels)
     val_ds = to_dataset(val_records, args.max_pixels) if val_records else None
 
-    bf16 = cuda and torch.cuda.is_bf16_supported()
+    # bf16 that chi co tu GPU Ampere (compute 8.x) tro len. Tren T4 (7.5) torch.cuda.is_bf16_supported() van tra
+    # True vi gia lap duoc, nhung Unsloth nap mo hinh fp16 -> phai train fp16 (Colab T4)
+    bf16 = cuda and torch.cuda.get_device_capability()[0] >= 8
     values, total_steps = training_values(args, len(train_ds), val_ds is not None, cuda, bf16)
     build = build_trainer_unsloth if args.backend == "unsloth" else build_trainer_hf
     trainer = build(args, model, processor, train_ds, val_ds, values)
@@ -575,6 +619,7 @@ def main(argv=None):
         "thoi_gian_train_phut": round(train_minutes, 1),
         "vram_dinh_gb": peak_vram,
         "gpu": gpu,
+        "moi_truong": moi_truong(bf16, list(args.train) + [args.val]),
         "dung_giua_chung": interrupted,
         "system_prompt": pf.SYSTEM_PROMPT,
     }

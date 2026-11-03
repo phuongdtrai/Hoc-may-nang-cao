@@ -1,0 +1,14 @@
+# Moi truong train / danh gia tren Google Colab (GPU T4) - dung trong finetune/colab_finetune.ipynb.
+# KHONG ghi torch, torchvision, xformers: dung torch Colab cai san (khop driver CUDA cua Colab), khoa torch bang
+# file /content/giu_torch.txt roi: pip install -c /content/giu_torch.txt -r requirements-colab.txt
+# (pip tu chon xformers hop voi torch do).
+# Cac phien ban duoi PHAI giong requirements-train.txt (da train vong 1 va vong 2 thanh cong); doi o day thi doi ca ben do.
+unsloth==2026.10.5
+unsloth_zoo==2026.10.5
+transformers==5.17.0
+trl==1.15.0
+peft==0.21.2
+accelerate==1.15.0
+bitsandbytes==0.50.2
+datasets==4.8.5
+matplotlib

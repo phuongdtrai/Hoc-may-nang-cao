@@ -104,7 +104,8 @@ def smoke_test(args):
         return
     rec = next(r for r in pf.read_jsonl(args.val) if not pf.check_record(r))
     cuda = torch.cuda.is_available()
-    dtype = torch.bfloat16 if cuda and torch.cuda.is_bf16_supported() else (torch.float16 if cuda else torch.float32)
+    bf16 = cuda and torch.cuda.get_device_capability()[0] >= 8  # T4 (7.5): fp16, xem train_qwen2vl.py
+    dtype = torch.bfloat16 if bf16 else (torch.float16 if cuda else torch.float32)
     kw = dtype_kwargs(dtype)
     if cuda:
         kw["device_map"] = {"": 0}

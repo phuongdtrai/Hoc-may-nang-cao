@@ -231,7 +231,8 @@ def load_model(args, which, base):
     from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 
     cuda = torch.cuda.is_available()
-    dtype = torch.bfloat16 if cuda and torch.cuda.is_bf16_supported() else (torch.float16 if cuda else torch.float32)
+    bf16 = cuda and torch.cuda.get_device_capability()[0] >= 8  # T4 (7.5): fp16, xem train_qwen2vl.py
+    dtype = torch.bfloat16 if bf16 else (torch.float16 if cuda else torch.float32)
     from train_qwen2vl import dtype_kwargs
     kw = dict(attn_implementation="sdpa", **dtype_kwargs(dtype))
     if cuda:

@@ -70,15 +70,17 @@ def check_gpu(torch):
         report(cap in archs or "sm_120" in archs, "Ho tro Blackwell (sm_120)", " ".join(archs[-4:]),
                "Can torch dung CUDA >= 12.8: pip install torch torchvision --index-url "
                "https://download.pytorch.org/whl/cu130")
+    # bf16 that chi tu compute 8.x; T4 (7.5) tra True o torch.cuda.is_bf16_supported() vi gia lap -> dung fp16
+    bf16 = p.major >= 8
+    kieu = torch.bfloat16 if bf16 else torch.float16
     try:
-        x = torch.randn(256, 256, device="cuda", dtype=torch.bfloat16)
+        x = torch.randn(256, 256, device="cuda", dtype=kieu)
         (x @ x).sum().item()
-        report(True, "Phep tinh bf16 tren GPU")
+        report(True, f"Phep tinh {'bf16' if bf16 else 'fp16'} tren GPU")
     except Exception as e:
         report(False, "Phep tinh tren GPU", str(e).splitlines()[0],
                "Loi 'no kernel image' = torch qua cu cho GPU nay, cai lai torch cu128/cu130")
-    report(torch.cuda.is_bf16_supported() or None, "bfloat16", str(torch.cuda.is_bf16_supported()),
-           "GPU khong ho tro bf16 - script se tu dung fp16")
+    report(bf16 or None, "bfloat16", str(bf16), "GPU khong ho tro bf16 (vd T4) - script se tu dung fp16")
     if free / 1024**3 < 6:
         report(None, "VRAM trong", f"chi con {free / 1024**3:.1f} GB",
                "Tat trinh duyet/game/app dung GPU truoc khi train")
@@ -86,8 +88,9 @@ def check_gpu(torch):
     # bitsandbytes 4-bit
     try:
         import bitsandbytes as bnb
-        lin = bnb.nn.Linear4bit(64, 64, compute_dtype=torch.bfloat16, quant_type="nf4").cuda()
-        lin(torch.randn(2, 64, device="cuda", dtype=torch.bfloat16)).sum().item()
+        kieu = torch.bfloat16 if p.major >= 8 else torch.float16
+        lin = bnb.nn.Linear4bit(64, 64, compute_dtype=kieu, quant_type="nf4").cuda()
+        lin(torch.randn(2, 64, device="cuda", dtype=kieu)).sum().item()
         report(True, "bitsandbytes 4-bit", bnb.__version__)
     except Exception as e:
         report(False, "bitsandbytes 4-bit", f"{type(e).__name__}: {str(e).splitlines()[0] if str(e) else ''}",
