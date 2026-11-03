@@ -1,0 +1,6 @@
+# Giai doan 5: nhung (embedding), nap Qdrant, tim kiem cho backend, do Recall@k. Python 3.11.
+# May co GPU NVIDIA: cai requirements-train.txt truoc (co torch CUDA) roi cai file nay vao cung .venv.
+# May khong co GPU: cai thang file nay, pip tu cai torch ban CPU (nhung cham hon nhieu, xem HUONG_DAN_GIAI_DOAN_5.md).
+-r requirements-ingest.txt
+sentence-transformers==6.2.0
+qdrant-client==1.20.0
